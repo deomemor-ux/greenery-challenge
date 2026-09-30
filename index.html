@@ -1,506 +1,668 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>그리너리 라이프 챌린지</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>10월의 도전</title>
+  
+  <!-- 스마트폰 바탕화면 앱 이름 및 아이콘 설정 -->
+  <meta name="apple-mobile-web-app-title" content="10월의 도전">
+  <meta name="application-name" content="10월의 도전">
+  <meta name="theme-color" content="#f5f5f4">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="icon" href="icon.png">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    ::-webkit-scrollbar { display: none; }
+  </style>
 </head>
-<body class="bg-stone-50 text-stone-800 min-h-screen flex flex-col items-center pb-20">
+<body class="bg-stone-50 text-stone-800 antialiased h-screen overflow-hidden">
+  
+  <div id="root" class="h-full"></div>
 
-    <!-- Header -->
-    <header class="w-full max-w-md bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
-        <div>
-            <h1 class="text-lg font-bold">🌿 그리너리 라이프 챌린지</h1>
-            <p class="text-xs text-emerald-200">10월 한 달간의 건강한 습관 만들기</p>
-        </div>
-        <button onclick="openGoalModal()" class="bg-emerald-800 hover:bg-emerald-900 text-xs px-3 py-2 rounded-lg font-medium transition shadow">
-            ⚙️ 목표 설정
-        </button>
-    </header>
+  <!-- 자동 실시간 연동을 위한 Firebase SDK 및 환경 변수 처리 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    
+    // 플랫폼에서 제공하는 자동 환경 변수를 안전하게 주입
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'greenery-challenge-v3';
+    const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-    <!-- Main Container -->
-    <main class="w-full max-w-md p-4 flex-1">
+    let db = null;
+    let auth = null;
+    const dataPath = `artifacts/${appId}/public/data/greenery_challenge`;
+
+    const defaultUsers = [
+      { id: 0, name: '작약세계', goals: [{text:'', freq:7}, {text:'', freq:7}, {text:'', freq:7}] },
+      { id: 1, name: 'Fern', goals: [{text:'', freq:7}, {text:'', freq:7}, {text:'', freq:7}] },
+      { id: 2, name: 'hereNnow', goals: [{text:'', freq:7}, {text:'', freq:7}, {text:'', freq:7}] },
+      { id: 3, name: '수국정원', goals: [{text:'', freq:7}, {text:'', freq:7}, {text:'', freq:7}] }
+    ];
+
+    const holidays = [3, 5, 9];
+
+    if (fbConfig) {
+      const app = initializeApp(fbConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      
+      const authenticate = async () => {
+        try {
+          if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+          else await signInAnonymously(auth);
+        } catch (err) { console.error("Auth Error:", err); }
+      };
+      authenticate();
+    }
+
+    window.AppRuntime = { db, dataPath, defaultUsers, holidays, getAuth, signInAnonymously, getFirestore, doc, onSnapshot, setDoc, getDoc };
+  </script>
+
+  <!-- 최종 컨펌해주신 React 코드 100% 동일 적용 -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const runtime = window.AppRuntime || {};
+    const db = runtime.db;
+    const dataPath = runtime.dataPath || 'greenery_challenge';
+    const defaultUsers = runtime.defaultUsers || [];
+    const holidays = runtime.holidays || [];
+
+    const App = () => {
+      const [isAuth, setIsAuth] = useState(false);
+      const [users, setUsers] = useState(defaultUsers);
+      const [records, setRecords] = useState({});
+      const [view, setView] = useState('calendar'); // 'calendar' | 'dashboard'
+      
+      const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+      const [selectedDate, setSelectedDate] = useState(null);
+      const [activeUserTab, setActiveUserTab] = useState(0);
+      const [reportUserId, setReportUserId] = useState(null);
+
+      useEffect(() => {
+        if (!db) {
+          setIsAuth(true);
+          return;
+        }
+        const usersRef = window.AppRuntime.doc(db, dataPath, 'config');
+        const recordsRef = window.AppRuntime.doc(db, dataPath, 'records');
+
+        const initData = async () => {
+          const snap = await window.AppRuntime.getDoc(usersRef);
+          if (!snap.exists()) await window.AppRuntime.setDoc(usersRef, { users: defaultUsers });
+        };
+        initData();
+
+        const unsubUsers = window.AppRuntime.onSnapshot(usersRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().users) setUsers(docSnap.data().users);
+        });
+        const unsubRecords = window.AppRuntime.onSnapshot(recordsRef, (docSnap) => {
+          if (docSnap.exists()) setRecords(docSnap.data());
+          else setRecords({});
+        });
+
+        setIsAuth(true);
+        return () => { unsubUsers(); unsubRecords(); };
+      }, [db]);
+
+      // Utils
+      const getDayOfWeek = (day) => new Date(2026, 9, day).getDay(); 
+      const isOptionalDay = (day) => {
+        const dow = getDayOfWeek(day);
+        return dow === 0 || dow === 6 || holidays.includes(day);
+      };
+      const getCheckState = (c) => {
+        if (c === true) return 1; 
+        if (c === false) return 0; 
+        return c || 0; 
+      };
+      
+      const getGoalObj = (goal) => {
+        if (typeof goal === 'string') return { text: goal, freq: 7 };
+        return goal || { text: '', freq: 7 };
+      };
+
+      const calculateStreak = () => {
+        let streak = 0;
+        for (let d = 31; d >= 2; d--) {
+          const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
+          const optional = isOptionalDay(d);
+          
+          let allPassed = true;
+          for (let uid = 0; uid < 4; uid++) {
+            const checks = records[dateStr]?.[uid]?.checks || [0,0,0];
+            const parsedChecks = checks.map(getCheckState);
+            if (!optional && parsedChecks.includes(0)) {
+              allPassed = false;
+              break;
+            }
+          }
+          if (allPassed) streak++;
+          else break; 
+        }
+        return streak;
+      };
+
+      const calculateProgress = (userId, goalIndex = null) => {
+        const user = users.find(u => u.id === userId);
         
-        <!-- Tab Navigation -->
-        <div class="flex bg-stone-200 p-1 rounded-xl mb-4">
-            <button onclick="switchTab('calendar')" id="tab-calendar" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition">📅 캘린더</button>
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition">📊 달성현황</button>
-        </div>
+        const getPctForSingleGoal = (idx) => {
+          const goalObj = getGoalObj(user.goals[idx]);
+          const freq = goalObj.freq || 7;
+          let num = 0;
+          let den = 0;
+          
+          if (freq === 7) {
+            for (let d = 2; d <= 31; d++) {
+              const optional = isOptionalDay(d);
+              const state = getCheckState((records[`2026-10-${String(d).padStart(2, '0')}`]?.[userId]?.checks || [0,0,0])[idx]);
+              
+              if (state === 1) { num++; if (!optional) den++; } 
+              else if (state === 0 && !optional) { den++; }
+            }
+          } else {
+            den = Math.round(freq * (30 / 7)); 
+            for (let d = 2; d <= 31; d++) {
+              const state = getCheckState((records[`2026-10-${String(d).padStart(2, '0')}`]?.[userId]?.checks || [0,0,0])[idx]);
+              if (state === 1) num++;
+            }
+          }
+          
+          if (den === 0) return num > 0 ? 100 : 0;
+          return Math.min(100, Math.round((num / den) * 100)); 
+        };
 
-        <!-- 1. Calendar View -->
-        <div id="view-calendar" class="space-y-4">
-            <!-- Streak Banner -->
-            <div id="streak-banner" class="hidden bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between shadow-sm">
-                <div class="flex items-center space-x-2">
-                    <span class="text-2xl">🔥</span>
-                    <div>
-                        <p class="text-xs text-emerald-800 font-medium">전원 연속 달성 중!</p>
-                        <p id="streak-text" class="text-sm font-bold text-emerald-900">3일 연속 완주 중</p>
+        if (goalIndex !== null) return getPctForSingleGoal(goalIndex);
+        
+        const avg = (getPctForSingleGoal(0) + getPctForSingleGoal(1) + getPctForSingleGoal(2)) / 3;
+        return Math.round(avg) || 0;
+      };
+
+      const GoalSettingModal = () => {
+        const [tempUsers, setTempUsers] = useState(JSON.parse(JSON.stringify(users)));
+        const [isSaving, setIsSaving] = useState(false);
+
+        const handleSave = async () => {
+          setIsSaving(true);
+          if (db) {
+            await window.AppRuntime.setDoc(window.AppRuntime.doc(db, dataPath, 'config'), { users: tempUsers });
+          } else {
+            setUsers(tempUsers);
+          }
+          setIsGoalModalOpen(false);
+          setIsSaving(false);
+        };
+
+        const updateGoal = (uid, gIdx, valueObj) => {
+          const newUsers = [...tempUsers];
+          const user = newUsers.find(u => u.id === uid);
+          user.goals[gIdx] = valueObj;
+          setTempUsers(newUsers);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-stone-50 w-full max-w-md h-[90vh] sm:h-[80vh] rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-5 bg-white border-b border-stone-200">
+                <h2 className="text-xl font-bold text-lime-900">목표 설정 및 다짐</h2>
+                <button onClick={() => setIsGoalModalOpen(false)} className="text-stone-400 hover:text-stone-600">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                <p className="text-[13px] text-stone-600 bg-lime-50 p-3 rounded-lg border border-lime-100 leading-tight">
+                  🌿 10월 한 달 동안 지킬 목표를 적어주세요. '주 N회'를 설정하면 횟수에 맞춰 달성률이 자동 계산됩니다!
+                </p>
+                {tempUsers.map((u, i) => (
+                  <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                    <div className="w-full text-lg font-bold text-lime-900 bg-transparent border-b-2 border-lime-200 pb-1 mb-3">
+                      {u.name}
                     </div>
-                </div>
-                <span class="text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-full font-semibold">Awesome!</span>
-            </div>
-
-            <!-- Calendar Grid Card -->
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-stone-100">
-                <div class="text-center font-bold text-stone-700 mb-3">2026년 10월</div>
-                <!-- Day Headers -->
-                <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-stone-400 mb-2">
-                    <span class="text-red-400">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="text-blue-400">토</span>
-                </div>
-                <!-- Days Container -->
-                <div id="calendar-days" class="grid grid-cols-7 gap-1.5">
-                    <!-- JS generated -->
-                </div>
-            </div>
-            
-            <div class="text-center text-xs text-stone-400 pt-2">
-                💡 날짜를 누르면 상세 체크리스트와 응원 메모를 남길 수 있어요!
-            </div>
-        </div>
-
-        <!-- 2. Dashboard View (2x2 Grid) -->
-        <div id="view-dashboard" class="hidden space-y-4">
-            <div class="grid grid-cols-2 gap-3" id="dashboard-grid">
-                <!-- JS generated -->
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Footer / Sync Status -->
-    <footer class="w-full max-w-md text-center py-4 text-xs text-stone-400">
-        ✨ 4명 실시간 동기화 완료 (그리너리 프로젝트)
-    </footer>
-
-    <!-- Day Detail Modal -->
-    <div id="day-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end justify-center">
-        <div class="bg-white w-full max-w-md rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4">
-            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
-                <h3 id="modal-date-title" class="font-bold text-stone-800 text-base">10월 X일 기록</h3>
-                <button onclick="closeDayModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
-            </div>
-
-            <!-- Member Tabs -->
-            <div id="modal-member-tabs" class="flex space-x-1 bg-stone-100 p-1 rounded-xl">
-                <!-- JS generated -->
-            </div>
-
-            <!-- Member Checklist & Memo Container -->
-            <div id="modal-member-content" class="space-y-4 pt-2">
-                <!-- JS generated -->
-            </div>
-
-            <!-- Confirm Button -->
-            <button onclick="closeDayModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition shadow">
-                확인
-            </button>
-        </div>
-    </div>
-
-    <!-- Goal Setting Modal -->
-    <div id="goal-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4 shadow-xl">
-            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
-                <h3 class="font-bold text-stone-800 text-base">⚙️ 멤버별 목표 및 빈도 설정</h3>
-                <button onclick="closeGoalModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
-            </div>
-            
-            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
-                🌱 10월 1일은 목표 설정의 날입니다! 각자 자신의 이름 아래 목표 3가지와 빈도를 설정해주세요.
-            </div>
-
-            <div id="goal-settings-container" class="space-y-6">
-                <!-- JS generated -->
-            </div>
-
-            <button onclick="saveGoals()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition shadow">
-                목표 저장하기
-            </button>
-        </div>
-    </div>
-
-    <!-- User Detail Report Modal -->
-    <div id="report-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4 shadow-xl">
-            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
-                <h3 id="report-modal-title" class="font-bold text-stone-800 text-base">상세 달성 리포트</h3>
-                <button onclick="closeReportModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
-            </div>
-            <div id="report-content" class="space-y-4">
-                <!-- JS generated -->
-            </div>
-            <button onclick="closeReportModal()" class="w-full bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-3 rounded-xl transition">
-                닫기
-            </button>
-        </div>
-    </div>
-
-    <!-- Firebase SDK Setup & Core Script -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'greenery-challenge-v2';
-        const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db = null;
-        let auth = null;
-        const dataPath = `artifacts/${appId}/public/data/greenery_challenge_v2`;
-
-        const defaultUsers = [
-            { id: 0, name: '작약세계', goals: [{text:'영양제 먹기', freq:7}, {text:'물 2L 마시기', freq:7}, {text:'스트레칭 하기', freq:5}] },
-            { id: 1, name: 'Fern', goals: [{text:'아침 공복 루틴', freq:7}, {text:'독서 20분', freq:7}, {text:'일찍 자기', freq:5}] },
-            { id: 2, name: 'hereNnow', goals: [{text:'샐러드 식단', freq:5}, {text:'필라테스/운동', freq:3}, {text:'영양제 챙기기', freq:7}] },
-            { id: 3, name: '수국정원', goals: [{text:'1만보 걷기', freq:7}, {text:'비타민C 복용', freq:7}, {text:'명상 10분', freq:5}] }
-        ];
-
-        let usersData = JSON.parse(JSON.stringify(defaultUsers));
-        let recordsData = {}; 
-
-        let currentTab = 'calendar';
-        let selectedDateStr = '2026-10-02';
-        let activeMemberTab = 0;
-        let tempGoalsData = [];
-
-        async function initFirebase() {
-            if (fbConfig) {
-                const app = initializeApp(fbConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                startFirestoreSync();
-            } else {
-                renderAll();
-            }
-        }
-
-        function startFirestoreSync() {
-            const usersRef = doc(db, dataPath, 'config');
-            const recordsRef = doc(db, dataPath, 'records');
-
-            getDoc(usersRef).then(snap => {
-                if (!snap.exists()) setDoc(usersRef, { users: defaultUsers });
-            });
-
-            onSnapshot(usersRef, (docSnap) => {
-                if (docSnap.exists() && docSnap.data().users) {
-                    usersData = docSnap.data().users;
-                    renderAll();
-                }
-            });
-
-            onSnapshot(recordsRef, (docSnap) => {
-                if (docSnap.exists() && docSnap.data().records) {
-                    recordsData = docSnap.data().records;
-                    renderAll();
-                }
-            });
-        }
-
-        window.switchTab = (tab) => {
-            currentTab = tab;
-            document.getElementById('tab-calendar').className = tab === 'calendar' ? 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition' : 'flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition';
-            document.getElementById('tab-dashboard').className = tab === 'dashboard' ? 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition' : 'flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition';
-            
-            document.getElementById('view-calendar').classList.toggle('hidden', tab !== 'calendar');
-            document.getElementById('view-dashboard').classList.toggle('hidden', tab !== 'dashboard');
-            renderAll();
-        };
-
-        window.openGoalModal = () => {
-            tempGoalsData = JSON.parse(JSON.stringify(usersData));
-            renderGoalSettings();
-            document.getElementById('goal-modal').classList.remove('hidden');
-        };
-
-        window.closeGoalModal = () => {
-            document.getElementById('goal-modal').classList.add('hidden');
-        };
-
-        window.saveGoals = async () => {
-            usersData = tempGoalsData;
-            if (db) {
-                await setDoc(doc(db, dataPath, 'config'), { users: usersData });
-            }
-            closeGoalModal();
-            renderAll();
-        };
-
-        window.openDayModal = (dateStr) => {
-            selectedDateStr = dateStr;
-            document.getElementById('modal-date-title').innerText = `📅 10월 ${dateStr.split('-')[2]}일 기록`;
-            renderModalContent();
-            document.getElementById('day-modal').classList.remove('hidden');
-        };
-
-        window.closeDayModal = () => {
-            document.getElementById('day-modal').classList.add('hidden');
-            renderAll();
-        };
-
-        window.selectMemberTab = (idx) => {
-            activeMemberTab = idx;
-            renderModalContent();
-        };
-
-        window.toggleCheck = async (userId, goalIdx) => {
-            if (!recordsData[selectedDateStr]) recordsData[selectedDateStr] = {};
-            if (!recordsData[selectedDateStr][userId]) recordsData[selectedDateStr][userId] = { checks: [0,0,0], memo: '' };
-            
-            let current = recordsData[selectedDateStr][userId].checks[goalIdx] || 0;
-            let next = (current + 1) % 3;
-            recordsData[selectedDateStr][userId].checks[goalIdx] = next;
-
-            if (db) {
-                await setDoc(doc(db, dataPath, 'records'), { records: recordsData });
-            }
-            renderModalContent();
-        };
-
-        window.sendMemo = async (userId, text) => {
-            if (!recordsData[selectedDateStr]) recordsData[selectedDateStr] = {};
-            if (!recordsData[selectedDateStr][userId]) recordsData[selectedDateStr][userId] = { checks: [0,0,0], memo: '' };
-            recordsData[selectedDateStr][userId].memo = text;
-
-            if (db) {
-                await setDoc(doc(db, dataPath, 'records'), { records: recordsData });
-            }
-            renderModalContent();
-        };
-
-        window.openReportModal = (userId) => {
-            const user = usersData[userId];
-            document.getElementById('report-modal-title').innerText = `📊 ${user.name}님의 상세 잔디 리포트`;
-            
-            let html = `<div class="space-y-3">`;
-            user.goals.forEach((g, gIdx) => {
-                html += `<div class="bg-stone-50 p-3 rounded-xl border border-stone-100">
-                    <p class="text-xs font-bold text-emerald-800 mb-2">목표 ${gIdx+1}: ${g.text || '(미입력)'}</p>
-                    <div class="grid grid-cols-10 gap-1">`;
-                for (let d = 2; d <= 31; d++) {
-                    const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
-                    const state = recordsData[dateStr]?.[userId]?.checks?.[gIdx] || 0;
-                    let bg = 'bg-stone-200 text-stone-400';
-                    let label = '·';
-                    if (state === 1) { bg = 'bg-emerald-500 text-white'; label = 'O'; }
-                    else if (state === 2) { bg = 'bg-stone-300 text-stone-600'; label = '-'; }
-                    html += `<div class="${bg} h-6 rounded flex items-center justify-center text-[10px] font-bold" title="10/${d}">${label}</div>`;
-                }
-                html += `</div></div>`;
-            });
-            html += `</div>`;
-            document.getElementById('report-content').innerHTML = html;
-            document.getElementById('report-modal').classList.remove('hidden');
-        };
-
-        window.closeReportModal = () => {
-            document.getElementById('report-modal').classList.add('hidden');
-        };
-
-        function renderAll() {
-            renderCalendar();
-            renderDashboard();
-            renderStreakBanner();
-        }
-
-        function renderStreakBanner() {
-            let streak = 0;
-            for (let d = 30; d >= 2; d--) {
-                let dateStr = `2026-10-${String(d).padStart(2,'0')}`;
-                let allDone = true;
-                usersData.forEach(u => {
-                    let checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
-                    if (checks.some(c => c === 0)) allDone = false;
-                });
-                if (allDone) streak++;
-                else break;
-            }
-            const banner = document.getElementById('streak-banner');
-            if (streak > 0) {
-                banner.classList.remove('hidden');
-                document.getElementById('streak-text').innerText = `${streak}일 연속 완주 중! 🔥`;
-            } else {
-                banner.classList.add('hidden');
-            }
-        }
-
-        function renderCalendar() {
-            const container = document.getElementById('calendar-days');
-            let html = '';
-            for (let i = 0; i < 4; i++) {
-                html += `<div class="h-20 bg-stone-50/50 rounded-xl opacity-30"></div>`;
-            }
-
-            for (let d = 1; d <= 31; d++) {
-                const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
-                const isOct1 = (d === 1);
-                
-                let completedCount = 0;
-                usersData.forEach(u => {
-                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
-                    if (!checks.some(c => c === 0)) completedCount++;
-                });
-
-                let badgeHtml = '';
-                if (isOct1) {
-                    badgeHtml = `<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">목표설정</span>`;
-                } else if (completedCount === 4) {
-                    badgeHtml = `<span class="text-lg animate-bounce">🍀</span>`;
-                } else if (completedCount === 3) {
-                    badgeHtml = `<span class="text-base">🌱</span>`;
-                } else if (completedCount > 0) {
-                    badgeHtml = `<span class="text-base">💧</span>`;
-                }
-
-                let dotsHtml = `<div class="flex space-x-0.5 mt-1">`;
-                usersData.forEach(u => {
-                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
-                    const done = !checks.some(c => c === 0);
-                    dotsHtml += `<div class="w-1.5 h-1.5 rounded-full ${done ? 'bg-emerald-500' : 'bg-stone-200'}"></div>`;
-                });
-                dotsHtml += `</div>`;
-
-                html += `
-                    <div onclick="openDayModal('${dateStr}')" class="h-20 bg-stone-50 hover:bg-emerald-50/50 border border-stone-100 rounded-xl p-1.5 flex flex-col justify-between items-center cursor-pointer transition shadow-xs">
-                        <span class="text-xs font-bold text-stone-600">${d}</span>
-                        <div class="flex flex-col items-center">${badgeHtml}</div>
-                        ${isOct1 ? '<div class="text-[9px] text-stone-400">설정일</div>' : dotsHtml}
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-        }
-
-        function renderDashboard() {
-            const grid = document.getElementById('dashboard-grid');
-            let html = '';
-
-            usersData.forEach(u => {
-                let totalGoals = u.goals.length * 21;
-                let completed = 0;
-                for (let d = 2; d <= 31; d++) {
-                    const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
-                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
-                    checks.forEach(c => { if (c === 1 || c === 2) completed++; });
-                }
-                let pct = Math.min(100, Math.round((completed / (totalGoals || 1)) * 100));
-
-                html += `
-                    <div onclick="openReportModal(${u.id})" class="bg-white p-3 rounded-2xl border border-stone-100 shadow-sm flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-sm text-stone-800">${u.name}</span>
-                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">${pct}%</span>
-                        </div>
-                        <div class="space-y-1.5 text-xs text-stone-500">
-                `;
-
-                u.goals.forEach((g, idx) => {
-                    html += `<div class="truncate">· ${g.text || '미설정'}</div>`;
-                });
-
-                html += `
-                        </div>
-                        <div class="text-[10px] text-stone-400 text-right mt-2">상세보기 &gt;</div>
-                    </div>
-                `;
-            });
-
-            grid.innerHTML = html;
-        }
-
-        function renderModalContent() {
-            const tabsContainer = document.getElementById('modal-member-tabs');
-            let tabsHtml = '';
-            usersData.forEach((u, idx) => {
-                const active = idx === activeMemberTab;
-                tabsHtml += `
-                    <button onclick="selectMemberTab(${idx})" class="flex-1 py-2 text-xs font-semibold rounded-lg transition ${active ? 'bg-white text-emerald-700 shadow-sm' : 'text-stone-500 hover:text-stone-800'}">
-                        ${u.name}
-                    </button>
-                `;
-            });
-            tabsContainer.innerHTML = tabsHtml;
-
-            const user = usersData[activeMemberTab];
-            const contentContainer = document.getElementById('modal-member-content');
-            const dayRecord = recordsData[selectedDateStr]?.[user.id] || { checks: [0,0,0], memo: '' };
-
-            let goalsHtml = `<div class="space-y-2">`;
-            user.goals.forEach((g, gIdx) => {
-                const state = dayRecord.checks[gIdx] || 0;
-                let bgClass = 'bg-stone-50 border-stone-200 text-stone-600';
-                let icon = '⬜ 미완료';
-                if (state === 1) { bgClass = 'bg-emerald-500 text-white border-emerald-600 shadow-sm'; icon = '✅ 완료'; }
-                else if (state === 2) { bgClass = 'bg-stone-200 text-stone-600 border-stone-300'; icon = '⚪ 휴식(패스)'; }
-
-                goalsHtml += `
-                    <div onclick="toggleCheck(${user.id}, ${gIdx})" class="flex items-center justify-between p-3 rounded-xl border ${bgClass} cursor-pointer transition">
-                        <span class="text-sm font-medium">목표 ${gIdx+1}. ${g.text || '목표를 입력해주세요'} <span class="text-[10px] opacity-75">(${g.freq === 7 ? '매일' : '주 ' + g.freq + '회'})</span></span>
-                        <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white/20">${icon}</span>
-                    </div>
-                `;
-            });
-            goalsHtml += `</div>`;
-
-            let memoHtml = `
-                <div class="space-y-2 pt-2 border-t border-stone-100">
-                    <label class="text-xs font-bold text-stone-600">💬 한 줄 응원 & 소통 메모</label>
-                    ${dayRecord.memo ? `<div class="bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl text-xs text-emerald-900 font-medium">✨ ${dayRecord.memo}</div>` : ''}
-                    <div class="flex space-x-1">
-                        <input type="text" id="memo-input-${user.id}" placeholder="오늘의 한마디를 남겨보세요 (최대 30자)" maxlength="30" value="${dayRecord.memo || ''}" class="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500">
-                        <button onclick="sendMemo(${user.id}, document.getElementById('memo-input-${user.id}').value)" class="bg-emerald-600 text-xs text-white px-3 py-2 rounded-xl font-medium">남기기</button>
-                    </div>
-                    <div class="flex space-x-1 pt-1">
-                        <button onclick="sendMemo(${user.id}, '👍 오늘도 수고했어요!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">👍 화이팅</button>
-                        <button onclick="sendMemo(${user.id}, '🔥 끝까지 달려봅시다!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">🔥 불끈</button>
-                        <button onclick="sendMemo(${user.id}, '❤ 모두 응원해요!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">❤️ 응원</button>
-                    </div>
-                </div>
-            `;
-
-            contentContainer.innerHTML = goalsHtml + memoHtml;
-        }
-
-        function renderGoalSettings() {
-            const container = document.getElementById('goal-settings-container');
-            let html = '';
-            tempGoalsData.forEach((u, uIdx) => {
-                html += `
-                    <div class="bg-stone-50 p-4 rounded-2xl border border-stone-100 space-y-3">
-                        <h4 class="font-bold text-emerald-800 text-sm">👤 ${u.name}님의 목표</h4>
-                `;
-                u.goals.forEach((g, gIdx) => {
-                    html += `
-                        <div class="flex space-x-2">
-                            <input type="text" value="${g.text}" oninput="tempGoalsData[${uIdx}].goals[${gIdx}].text = this.value" placeholder="목표 ${gIdx+1} 입력" class="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500">
-                            <select onchange="tempGoalsData[${uIdx}].goals[${gIdx}].freq = Number(this.value)" class="bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-xs">
-                                <option value="7" ${g.freq===7?'selected':''}>매일 (주7회)</option>
-                                <option value="5" ${g.freq===5?'selected':''}>주 5회</option>
-                                <option value="3" ${g.freq===3?'selected':''}>주 3회</option>
-                                <option value="1" ${g.freq===1?'selected':''}>주 1회</option>
+                    <div className="space-y-3">
+                      {[0,1,2].map(gIndex => {
+                        const goalObj = getGoalObj(u.goals[gIndex]);
+                        return (
+                          <div key={gIndex} className="flex items-center space-x-2">
+                            <span className="text-lime-600 font-medium text-sm">{gIndex + 1}.</span>
+                            <input 
+                              type="text" value={goalObj.text} onChange={(e) => updateGoal(u.id, gIndex, { ...goalObj, text: e.target.value })}
+                              placeholder="목표를 입력하세요"
+                              className="flex-1 min-w-0 text-sm bg-stone-50 border border-stone-200 rounded-md px-3 py-2 outline-none focus:ring-1 focus:ring-lime-500"
+                            />
+                            <select 
+                              value={goalObj.freq} onChange={(e) => updateGoal(u.id, gIndex, { ...goalObj, freq: Number(e.target.value) })}
+                              className="bg-stone-50 border border-stone-200 text-stone-600 text-[13px] rounded-md px-1 py-2 outline-none shrink-0 focus:ring-1 focus:ring-lime-500"
+                            >
+                              <option value={7}>매일</option>
+                              <option value={1}>주 1회</option>
+                              <option value={2}>주 2회</option>
+                              <option value={3}>주 3회</option>
+                              <option value={4}>주 4회</option>
+                              <option value={5}>주 5회</option>
+                              <option value={6}>주 6회</option>
                             </select>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 bg-white border-t border-stone-200">
+                <button onClick={handleSave} disabled={isSaving} className="w-full bg-lime-700 text-white font-bold py-4 rounded-xl shadow-md hover:bg-lime-800 transition active:scale-[0.98]">
+                  {isSaving ? '저장 중...' : '모두 저장하기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const DailyDetailModal = () => {
+        const [memoText, setMemoText] = useState('');
+        
+        const dayRecord = records[selectedDate] || {};
+        const userRecord = dayRecord[activeUserTab] || { checks: [0, 0, 0], memo: '' };
+        const checks = (userRecord.checks || [0,0,0]).map(getCheckState);
+
+        const toggleCheck = async (goalIndex) => {
+          const newChecks = [...checks];
+          newChecks[goalIndex] = (newChecks[goalIndex] + 1) % 3; 
+
+          const updatedRecords = { ...records };
+          if (!updatedRecords[selectedDate]) updatedRecords[selectedDate] = {};
+          updatedRecords[selectedDate][activeUserTab] = { ...userRecord, checks: newChecks };
+          
+          if (db) {
+            await window.AppRuntime.setDoc(window.AppRuntime.doc(db, dataPath, 'records'), updatedRecords, { merge: true });
+          } else {
+            setRecords(updatedRecords);
+          }
+        };
+
+        const saveMemo = async (textToSave = memoText) => {
+          if (!textToSave.trim()) return;
+          const updatedRecords = { ...records };
+          if (!updatedRecords[selectedDate]) updatedRecords[selectedDate] = {};
+          updatedRecords[selectedDate][activeUserTab] = { ...userRecord, memo: textToSave };
+          
+          if (db) {
+            await window.AppRuntime.setDoc(window.AppRuntime.doc(db, dataPath, 'records'), updatedRecords, { merge: true });
+          } else {
+            setRecords(updatedRecords);
+          }
+          setMemoText('');
+        };
+
+        const activeUser = users.find(u => u.id === activeUserTab);
+        const displayDate = selectedDate ? selectedDate.split('-') : ['','',''];
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-40 flex items-end justify-center animate-in fade-in duration-200">
+            <div className="bg-stone-50 w-full max-w-md h-[88vh] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-5 pb-3">
+                <div>
+                  <p className="text-sm font-medium text-lime-700">10월 챌린지</p>
+                  <h2 className="text-2xl font-extrabold text-stone-800">{displayDate[1]}월 {displayDate[2]}일의 기록</h2>
+                </div>
+              </div>
+
+              <div className="px-5 pb-2">
+                <div className="flex bg-stone-200/60 p-1 rounded-xl">
+                  {users.map(u => (
+                    <button 
+                      key={u.id} onClick={() => setActiveUserTab(u.id)}
+                      className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all truncate px-1 ${activeUserTab === u.id ? 'bg-white shadow-sm text-lime-800' : 'text-stone-500 hover:text-stone-700'}`}
+                    >
+                      {u.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5 pt-2 flex flex-col relative">
+                <div className="space-y-3 mb-6">
+                  {activeUser.goals.map((goalRaw, idx) => {
+                    const goal = getGoalObj(goalRaw);
+                    const state = checks[idx];
+                    return (
+                      <div 
+                        key={idx} onClick={() => toggleCheck(idx)}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer select-none active:scale-[0.98]
+                          ${state === 1 ? 'bg-green-50 border-green-400' : state === 2 ? 'bg-stone-100 border-stone-300' : 'bg-white border-stone-100 shadow-sm'}`}
+                      >
+                        <div className="flex flex-col">
+                          <span className={`text-[15px] font-medium pr-4 line-clamp-1 ${state === 1 ? 'text-green-800' : state === 2 ? 'text-stone-400 line-through' : 'text-stone-700'}`}>
+                            {goal.text || '목표 미설정'}
+                          </span>
+                          <span className={`text-[11px] mt-0.5 font-bold ${state === 1 ? 'text-green-600' : 'text-stone-400'}`}>
+                            {goal.freq === 7 ? '매일' : `주 ${goal.freq}회`}
+                          </span>
                         </div>
-                    `;
-                });
-                html += `</div>`;
-            });
-            container.innerHTML = html;
+                        <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors border-2
+                          ${state === 1 ? 'bg-green-500 border-green-500' : state === 2 ? 'bg-white border-stone-300' : 'bg-stone-50 border-stone-200'}`}
+                        >
+                          {state === 1 && <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                          {state === 2 && <span className="text-[10px] font-bold text-stone-400">패스</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex-1 flex flex-col justify-end">
+                  {userRecord.memo && (
+                    <div className="mb-4 flex flex-col items-start animate-in slide-in-from-bottom-2">
+                      <div className="relative bg-lime-100 border border-lime-200 py-2.5 px-4 rounded-2xl rounded-bl-none max-w-[85%] shadow-sm">
+                        <span className="text-sm font-medium text-lime-900 leading-snug break-all">{userRecord.memo}</span>
+                        <div className="absolute -bottom-1.5 left-0 w-3 h-3 bg-lime-100 border-b border-l border-lime-200 transform -rotate-45" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white p-3 rounded-2xl shadow-sm border border-stone-100 mt-2 mb-4">
+                  <div className="flex space-x-2 mb-2">
+                    {['👍', '🔥', '👏', '❤️'].map(emoji => (
+                      <button 
+                        key={emoji} onClick={() => saveMemo(emoji)}
+                        className="flex-1 bg-stone-50 hover:bg-stone-100 py-1.5 rounded-lg border border-stone-200 text-lg transition-colors"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex space-x-2">
+                    <input 
+                      type="text" maxLength={30} value={memoText} onChange={(e) => setMemoText(e.target.value)}
+                      placeholder="따뜻한 한 마디 (30자 이내)"
+                      className="flex-1 bg-stone-50 border border-stone-200 text-sm rounded-xl px-4 py-2.5 outline-none focus:border-lime-500 focus:ring-1 focus:ring-lime-500"
+                    />
+                    <button 
+                      onClick={() => saveMemo()} disabled={!memoText.trim()}
+                      className="bg-lime-700 text-white font-bold px-4 rounded-xl disabled:bg-stone-300 disabled:text-stone-500 transition-colors"
+                    >
+                      남기기
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedDate(null)}
+                  className="w-full bg-lime-700 text-white font-bold py-4 rounded-2xl shadow-md hover:bg-lime-800 transition active:scale-[0.98] shrink-0"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const UserReportModal = () => {
+        const user = users.find(u => u.id === reportUserId);
+        if (!user) return null;
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-md max-h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-xl">
+              <div className="flex justify-between items-center p-5 border-b border-stone-100">
+                <div>
+                  <p className="text-xs font-bold text-lime-600 mb-0.5">상세 달성 기록</p>
+                  <h2 className="font-extrabold text-xl text-stone-800">{user.name} 님의 기록</h2>
+                </div>
+                <button onClick={() => setReportUserId(null)} className="w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center text-stone-500 hover:bg-stone-200">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto p-5 space-y-7 flex-1">
+                {[0, 1, 2].map(gIdx => {
+                  const goal = getGoalObj(user.goals[gIdx]);
+                  return (
+                    <div key={gIdx}>
+                      <div className="flex items-end justify-between mb-2">
+                        <span className="text-[14px] font-bold text-lime-800">
+                          {gIdx + 1}. {goal.text || '목표 미설정'}
+                        </span>
+                        <span className="text-[10px] text-stone-400 font-medium bg-stone-100 px-2 py-0.5 rounded-md">
+                          {goal.freq === 7 ? '매일' : `주 ${goal.freq}회`}
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.from({ length: 30 }, (_, i) => i + 2).map(d => {
+                          const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
+                          const checks = records[dateStr]?.[reportUserId]?.checks || [0,0,0];
+                          const state = getCheckState(checks[gIdx]);
+                          
+                          let cellClass = "bg-white border border-stone-200 text-stone-300"; 
+                          if (state === 1) cellClass = "bg-lime-500 text-white border-lime-500 shadow-sm"; 
+                          else if (state === 2) cellClass = "bg-stone-200 text-stone-500 border-stone-200"; 
+
+                          return (
+                            <div key={d} className={`w-[1.85rem] h-[1.85rem] flex items-center justify-center rounded-md text-[11px] font-bold ${cellClass}`}>
+                              {d}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-4 bg-stone-50 border-t border-stone-100 flex justify-center gap-4 text-[11px] font-medium text-stone-500">
+                <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-lime-500 rounded-sm"></div> 완료</div>
+                <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-stone-200 rounded-sm"></div> 패스</div>
+                <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 bg-white border border-stone-200 rounded-sm"></div> 미완료</div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const renderCalendar = () => {
+        const days = [];
+        for (let i = 0; i < 4; i++) days.push(<div key={`empty-${i}`} className="p-2"></div>);
+
+        for (let d = 1; d <= 31; d++) {
+          const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
+          const isOptional = isOptionalDay(d);
+          const isDay1 = d === 1;
+
+          const dayRecord = records[dateStr];
+          let completedUsers = 0;
+          let userStatusDots = []; 
+
+          if (!isDay1) {
+            for (let uid = 0; uid < 4; uid++) {
+              const checks = ((dayRecord && dayRecord[uid]?.checks) || [0,0,0]).map(getCheckState);
+              const isDone = !checks.includes(0); 
+              if (isDone) completedUsers++;
+              
+              userStatusDots.push(
+                <div key={`dot-${uid}`} className={`w-1.5 h-1.5 rounded-full ${isDone ? 'bg-lime-500' : 'bg-stone-300/50'}`} />
+              );
+            }
+          }
+
+          days.push(
+            <div 
+              key={dateStr}
+              onClick={() => isDay1 ? setIsGoalModalOpen(true) : setSelectedDate(dateStr)}
+              className={`relative flex flex-col items-center justify-start pt-1.5 pb-2 border-b border-r border-stone-200/50 min-h-[5.5rem] cursor-pointer active:bg-stone-200 transition-colors
+                ${isDay1 ? 'bg-lime-50 hover:bg-lime-100' : isOptional ? 'bg-stone-50' : 'bg-white hover:bg-stone-50'}
+              `}
+            >
+              <span className={`text-sm font-semibold z-10 ${isOptional ? 'text-stone-400' : 'text-stone-700'} ${isDay1 ? 'text-lime-700' : ''}`}>
+                {d}
+              </span>
+              
+              {isDay1 && <div className="mt-2 text-[10px] font-bold text-lime-600 text-center leading-tight">목표<br/>설정일</div>}
+              
+              {!isDay1 && (
+                <>
+                  <div className="absolute inset-0 top-3 flex items-center justify-center pointer-events-none">
+                    {completedUsers === 1 || completedUsers === 2 ? (
+                      <span className="text-2xl opacity-80 animate-in zoom-in">💧</span>
+                    ) : completedUsers === 3 ? (
+                      <span className="text-3xl drop-shadow-sm animate-in zoom-in opacity-90">🌱</span>
+                    ) : completedUsers === 4 ? (
+                      <span className="text-4xl drop-shadow-md animate-[bounce_1.5s_infinite] origin-bottom">🍀</span>
+                    ) : null}
+                  </div>
+
+                  <div className="absolute bottom-1 w-full flex justify-center space-x-0.5 px-1">
+                    {userStatusDots}
+                  </div>
+                </>
+              )}
+            </div>
+          );
         }
 
-        initFirebase();
-    </script>
+        return (
+          <div className="flex-1 overflow-y-auto bg-stone-50 pb-24">
+            <div className="bg-white m-4 rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+              <div className="grid grid-cols-7 bg-lime-800 text-white py-2 text-center text-[10px] font-bold tracking-wider">
+                <div className="text-red-300">SUN</div>
+                <div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div>
+                <div className="text-blue-300">SAT</div>
+              </div>
+              <div className="grid grid-cols-7 border-l border-t border-stone-200/50">
+                {days}
+              </div>
+            </div>
+            <div className="px-6 space-y-1 text-center text-[10px] font-medium text-stone-400">
+              <p>* 주말 및 공휴일(3, 5, 9일)은 선택 참여입니다.</p>
+              <p>* "주 N회" 목표의 미수행일에는 [패스]를 눌러주세요.</p>
+            </div>
+          </div>
+        );
+      };
+
+      const renderDashboard = () => {
+        const currentStreak = calculateStreak();
+
+        return (
+          <div className="flex-1 flex flex-col bg-stone-50 overflow-hidden relative pb-[4.5rem]">
+            {currentStreak > 0 && (
+              <div className="px-4 pt-4 shrink-0">
+                <div className="bg-gradient-to-r from-lime-700 to-lime-900 rounded-2xl p-4 text-white shadow-md relative overflow-hidden flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lime-200 font-medium text-xs mb-0.5">우리들의 열정 온도</h3>
+                    <div className="text-2xl font-extrabold flex items-center">현재 {currentStreak}일 연속 달성!</div>
+                  </div>
+                  <div className="text-4xl animate-bounce">🔥</div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 grid grid-cols-2 gap-3 p-4 overflow-y-auto">
+              {users.map((u) => {
+                const overall = calculateProgress(u.id);
+                return (
+                  <div 
+                    key={u.id} 
+                    onClick={() => setReportUserId(u.id)}
+                    className="cursor-pointer bg-white rounded-2xl p-3.5 shadow-sm border border-stone-100 flex flex-col justify-between hover:border-lime-400 hover:shadow-md transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-extrabold text-stone-800 text-[15px] truncate pr-2">
+                        {u.name}
+                      </span>
+                      <div className="relative shrink-0 w-10 h-10 flex items-center justify-center bg-lime-50 rounded-full border-2 border-lime-200">
+                        <span className="font-black text-lime-700 text-xs">{overall}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 mt-auto">
+                      {[0, 1, 2].map((idx) => {
+                        const pct = calculateProgress(u.id, idx);
+                        const goalRaw = u.goals[idx];
+                        const goal = getGoalObj(goalRaw);
+                        return (
+                          <div key={idx} className="flex justify-between items-center text-[11px]">
+                            <span className="text-stone-600 truncate mr-2 flex-1">
+                              {idx+1}. {goal.text || '-'}
+                            </span>
+                            <span className={`font-bold shrink-0 ${pct === 100 ? 'text-lime-600' : 'text-stone-400'}`}>
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="w-full max-w-md mx-auto h-[100dvh] flex flex-col bg-stone-50 font-sans shadow-2xl overflow-hidden relative">
+          <header className="bg-white px-5 py-4 flex justify-between items-center shadow-sm z-10 relative border-b border-stone-100 shrink-0">
+            <div>
+              <h1 className="text-xl font-black text-lime-900 tracking-tight flex items-center">
+                <span className="text-2xl mr-1.5">🌿</span> 그리너리 라이프
+              </h1>
+              <p className="text-[11px] font-bold text-lime-600/80">10월 건강 습관 챌린지</p>
+            </div>
+            <button 
+              onClick={() => setIsGoalModalOpen(true)}
+              className="w-9 h-9 flex items-center justify-center bg-stone-100 rounded-full text-stone-600 hover:bg-stone-200 transition"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+          </header>
+
+          {view === 'calendar' ? renderCalendar() : renderDashboard()}
+
+          <nav className="absolute bottom-0 w-full bg-white border-t border-stone-200 flex shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] pb-safe z-30">
+            <button 
+              onClick={() => setView('calendar')}
+              className={`flex-1 flex flex-col items-center justify-center py-3.5 transition-colors ${view === 'calendar' ? 'text-lime-800' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mb-1"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span className="text-[10px] font-bold tracking-wide">캘린더</span>
+            </button>
+            <button 
+              onClick={() => setView('dashboard')}
+              className={`flex-1 flex flex-col items-center justify-center py-3.5 transition-colors ${view === 'dashboard' ? 'text-lime-800' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mb-1"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              <span className="text-[10px] font-bold tracking-wide">달성현황</span>
+            </button>
+          </nav>
+
+          {isGoalModalOpen && <GoalSettingModal />}
+          {selectedDate && <DailyDetailModal />}
+          {reportUserId !== null && <UserReportModal />}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
