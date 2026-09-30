@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그리너리 라이프 챌린지</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 min-h-screen flex flex-col items-center pb-20">
+
+    <!-- Header -->
+    <header class="w-full max-w-md bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-20 flex justify-between items-center">
+        <div>
+            <h1 class="text-lg font-bold">🌿 그리너리 라이프 챌린지</h1>
+            <p class="text-xs text-emerald-200">10월 한 달간의 건강한 습관 만들기</p>
+        </div>
+        <button onclick="openGoalModal()" class="bg-emerald-800 hover:bg-emerald-900 text-xs px-3 py-2 rounded-lg font-medium transition shadow">
+            ⚙️ 목표 설정
+        </button>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-md p-4 flex-1">
+        
+        <!-- Tab Navigation -->
+        <div class="flex bg-stone-200 p-1 rounded-xl mb-4">
+            <button onclick="switchTab('calendar')" id="tab-calendar" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition">📅 캘린더</button>
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition">📊 달성현황</button>
+        </div>
+
+        <!-- 1. Calendar View -->
+        <div id="view-calendar" class="space-y-4">
+            <!-- Streak Banner -->
+            <div id="streak-banner" class="hidden bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between shadow-sm">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🔥</span>
+                    <div>
+                        <p class="text-xs text-emerald-800 font-medium">전원 연속 달성 중!</p>
+                        <p id="streak-text" class="text-sm font-bold text-emerald-900">3일 연속 완주 중</p>
+                    </div>
+                </div>
+                <span class="text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-full font-semibold">Awesome!</span>
+            </div>
+
+            <!-- Calendar Grid Card -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-stone-100">
+                <div class="text-center font-bold text-stone-700 mb-3">2026년 10월</div>
+                <!-- Day Headers -->
+                <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-stone-400 mb-2">
+                    <span class="text-red-400">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="text-blue-400">토</span>
+                </div>
+                <!-- Days Container -->
+                <div id="calendar-days" class="grid grid-cols-7 gap-1.5">
+                    <!-- JS generated -->
+                </div>
+            </div>
+            
+            <div class="text-center text-xs text-stone-400 pt-2">
+                💡 날짜를 누르면 상세 체크리스트와 응원 메모를 남길 수 있어요!
+            </div>
+        </div>
+
+        <!-- 2. Dashboard View (2x2 Grid) -->
+        <div id="view-dashboard" class="hidden space-y-4">
+            <div class="grid grid-cols-2 gap-3" id="dashboard-grid">
+                <!-- JS generated -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer / Sync Status -->
+    <footer class="w-full max-w-md text-center py-4 text-xs text-stone-400">
+        ✨ 4명 실시간 동기화 완료 (그리너리 프로젝트)
+    </footer>
+
+    <!-- Day Detail Modal -->
+    <div id="day-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end justify-center">
+        <div class="bg-white w-full max-w-md rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
+                <h3 id="modal-date-title" class="font-bold text-stone-800 text-base">10월 X일 기록</h3>
+                <button onclick="closeDayModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
+            </div>
+
+            <!-- Member Tabs -->
+            <div id="modal-member-tabs" class="flex space-x-1 bg-stone-100 p-1 rounded-xl">
+                <!-- JS generated -->
+            </div>
+
+            <!-- Member Checklist & Memo Container -->
+            <div id="modal-member-content" class="space-y-4 pt-2">
+                <!-- JS generated -->
+            </div>
+
+            <!-- Confirm Button -->
+            <button onclick="closeDayModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition shadow">
+                확인
+            </button>
+        </div>
+    </div>
+
+    <!-- Goal Setting Modal -->
+    <div id="goal-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
+                <h3 class="font-bold text-stone-800 text-base">⚙️ 멤버별 목표 및 빈도 설정</h3>
+                <button onclick="closeGoalModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
+            </div>
+            
+            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
+                🌱 10월 1일은 목표 설정의 날입니다! 각자 자신의 이름 아래 목표 3가지와 빈도를 설정해주세요.
+            </div>
+
+            <div id="goal-settings-container" class="space-y-6">
+                <!-- JS generated -->
+            </div>
+
+            <button onclick="saveGoals()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition shadow">
+                목표 저장하기
+            </button>
+        </div>
+    </div>
+
+    <!-- User Detail Report Modal -->
+    <div id="report-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[90vh] overflow-y-auto space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-stone-100 pb-3">
+                <h3 id="report-modal-title" class="font-bold text-stone-800 text-base">상세 달성 리포트</h3>
+                <button onclick="closeReportModal()" class="text-stone-400 hover:text-stone-600 text-xl font-bold">×</button>
+            </div>
+            <div id="report-content" class="space-y-4">
+                <!-- JS generated -->
+            </div>
+            <button onclick="closeReportModal()" class="w-full bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold py-3 rounded-xl transition">
+                닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Setup & Core Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'greenery-challenge-v2';
+        const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db = null;
+        let auth = null;
+        const dataPath = `artifacts/${appId}/public/data/greenery_challenge_v2`;
+
+        const defaultUsers = [
+            { id: 0, name: '작약세계', goals: [{text:'영양제 먹기', freq:7}, {text:'물 2L 마시기', freq:7}, {text:'스트레칭 하기', freq:5}] },
+            { id: 1, name: 'Fern', goals: [{text:'아침 공복 루틴', freq:7}, {text:'독서 20분', freq:7}, {text:'일찍 자기', freq:5}] },
+            { id: 2, name: 'hereNnow', goals: [{text:'샐러드 식단', freq:5}, {text:'필라테스/운동', freq:3}, {text:'영양제 챙기기', freq:7}] },
+            { id: 3, name: '수국정원', goals: [{text:'1만보 걷기', freq:7}, {text:'비타민C 복용', freq:7}, {text:'명상 10분', freq:5}] }
+        ];
+
+        let usersData = JSON.parse(JSON.stringify(defaultUsers));
+        let recordsData = {}; 
+
+        let currentTab = 'calendar';
+        let selectedDateStr = '2026-10-02';
+        let activeMemberTab = 0;
+        let tempGoalsData = [];
+
+        async function initFirebase() {
+            if (fbConfig) {
+                const app = initializeApp(fbConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                startFirestoreSync();
+            } else {
+                renderAll();
+            }
+        }
+
+        function startFirestoreSync() {
+            const usersRef = doc(db, dataPath, 'config');
+            const recordsRef = doc(db, dataPath, 'records');
+
+            getDoc(usersRef).then(snap => {
+                if (!snap.exists()) setDoc(usersRef, { users: defaultUsers });
+            });
+
+            onSnapshot(usersRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().users) {
+                    usersData = docSnap.data().users;
+                    renderAll();
+                }
+            });
+
+            onSnapshot(recordsRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().records) {
+                    recordsData = docSnap.data().records;
+                    renderAll();
+                }
+            });
+        }
+
+        window.switchTab = (tab) => {
+            currentTab = tab;
+            document.getElementById('tab-calendar').className = tab === 'calendar' ? 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition' : 'flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition';
+            document.getElementById('tab-dashboard').className = tab === 'dashboard' ? 'flex-1 py-2 text-sm font-semibold rounded-lg bg-white text-emerald-700 shadow-sm transition' : 'flex-1 py-2 text-sm font-semibold rounded-lg text-stone-600 transition';
+            
+            document.getElementById('view-calendar').classList.toggle('hidden', tab !== 'calendar');
+            document.getElementById('view-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+            renderAll();
+        };
+
+        window.openGoalModal = () => {
+            tempGoalsData = JSON.parse(JSON.stringify(usersData));
+            renderGoalSettings();
+            document.getElementById('goal-modal').classList.remove('hidden');
+        };
+
+        window.closeGoalModal = () => {
+            document.getElementById('goal-modal').classList.add('hidden');
+        };
+
+        window.saveGoals = async () => {
+            usersData = tempGoalsData;
+            if (db) {
+                await setDoc(doc(db, dataPath, 'config'), { users: usersData });
+            }
+            closeGoalModal();
+            renderAll();
+        };
+
+        window.openDayModal = (dateStr) => {
+            selectedDateStr = dateStr;
+            document.getElementById('modal-date-title').innerText = `📅 10월 ${dateStr.split('-')[2]}일 기록`;
+            renderModalContent();
+            document.getElementById('day-modal').classList.remove('hidden');
+        };
+
+        window.closeDayModal = () => {
+            document.getElementById('day-modal').classList.add('hidden');
+            renderAll();
+        };
+
+        window.selectMemberTab = (idx) => {
+            activeMemberTab = idx;
+            renderModalContent();
+        };
+
+        window.toggleCheck = async (userId, goalIdx) => {
+            if (!recordsData[selectedDateStr]) recordsData[selectedDateStr] = {};
+            if (!recordsData[selectedDateStr][userId]) recordsData[selectedDateStr][userId] = { checks: [0,0,0], memo: '' };
+            
+            let current = recordsData[selectedDateStr][userId].checks[goalIdx] || 0;
+            let next = (current + 1) % 3;
+            recordsData[selectedDateStr][userId].checks[goalIdx] = next;
+
+            if (db) {
+                await setDoc(doc(db, dataPath, 'records'), { records: recordsData });
+            }
+            renderModalContent();
+        };
+
+        window.sendMemo = async (userId, text) => {
+            if (!recordsData[selectedDateStr]) recordsData[selectedDateStr] = {};
+            if (!recordsData[selectedDateStr][userId]) recordsData[selectedDateStr][userId] = { checks: [0,0,0], memo: '' };
+            recordsData[selectedDateStr][userId].memo = text;
+
+            if (db) {
+                await setDoc(doc(db, dataPath, 'records'), { records: recordsData });
+            }
+            renderModalContent();
+        };
+
+        window.openReportModal = (userId) => {
+            const user = usersData[userId];
+            document.getElementById('report-modal-title').innerText = `📊 ${user.name}님의 상세 잔디 리포트`;
+            
+            let html = `<div class="space-y-3">`;
+            user.goals.forEach((g, gIdx) => {
+                html += `<div class="bg-stone-50 p-3 rounded-xl border border-stone-100">
+                    <p class="text-xs font-bold text-emerald-800 mb-2">목표 ${gIdx+1}: ${g.text || '(미입력)'}</p>
+                    <div class="grid grid-cols-10 gap-1">`;
+                for (let d = 2; d <= 31; d++) {
+                    const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
+                    const state = recordsData[dateStr]?.[userId]?.checks?.[gIdx] || 0;
+                    let bg = 'bg-stone-200 text-stone-400';
+                    let label = '·';
+                    if (state === 1) { bg = 'bg-emerald-500 text-white'; label = 'O'; }
+                    else if (state === 2) { bg = 'bg-stone-300 text-stone-600'; label = '-'; }
+                    html += `<div class="${bg} h-6 rounded flex items-center justify-center text-[10px] font-bold" title="10/${d}">${label}</div>`;
+                }
+                html += `</div></div>`;
+            });
+            html += `</div>`;
+            document.getElementById('report-content').innerHTML = html;
+            document.getElementById('report-modal').classList.remove('hidden');
+        };
+
+        window.closeReportModal = () => {
+            document.getElementById('report-modal').classList.add('hidden');
+        };
+
+        function renderAll() {
+            renderCalendar();
+            renderDashboard();
+            renderStreakBanner();
+        }
+
+        function renderStreakBanner() {
+            let streak = 0;
+            for (let d = 30; d >= 2; d--) {
+                let dateStr = `2026-10-${String(d).padStart(2,'0')}`;
+                let allDone = true;
+                usersData.forEach(u => {
+                    let checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
+                    if (checks.some(c => c === 0)) allDone = false;
+                });
+                if (allDone) streak++;
+                else break;
+            }
+            const banner = document.getElementById('streak-banner');
+            if (streak > 0) {
+                banner.classList.remove('hidden');
+                document.getElementById('streak-text').innerText = `${streak}일 연속 완주 중! 🔥`;
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-days');
+            let html = '';
+            for (let i = 0; i < 4; i++) {
+                html += `<div class="h-20 bg-stone-50/50 rounded-xl opacity-30"></div>`;
+            }
+
+            for (let d = 1; d <= 31; d++) {
+                const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
+                const isOct1 = (d === 1);
+                
+                let completedCount = 0;
+                usersData.forEach(u => {
+                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
+                    if (!checks.some(c => c === 0)) completedCount++;
+                });
+
+                let badgeHtml = '';
+                if (isOct1) {
+                    badgeHtml = `<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">목표설정</span>`;
+                } else if (completedCount === 4) {
+                    badgeHtml = `<span class="text-lg animate-bounce">🍀</span>`;
+                } else if (completedCount === 3) {
+                    badgeHtml = `<span class="text-base">🌱</span>`;
+                } else if (completedCount > 0) {
+                    badgeHtml = `<span class="text-base">💧</span>`;
+                }
+
+                let dotsHtml = `<div class="flex space-x-0.5 mt-1">`;
+                usersData.forEach(u => {
+                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
+                    const done = !checks.some(c => c === 0);
+                    dotsHtml += `<div class="w-1.5 h-1.5 rounded-full ${done ? 'bg-emerald-500' : 'bg-stone-200'}"></div>`;
+                });
+                dotsHtml += `</div>`;
+
+                html += `
+                    <div onclick="openDayModal('${dateStr}')" class="h-20 bg-stone-50 hover:bg-emerald-50/50 border border-stone-100 rounded-xl p-1.5 flex flex-col justify-between items-center cursor-pointer transition shadow-xs">
+                        <span class="text-xs font-bold text-stone-600">${d}</span>
+                        <div class="flex flex-col items-center">${badgeHtml}</div>
+                        ${isOct1 ? '<div class="text-[9px] text-stone-400">설정일</div>' : dotsHtml}
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderDashboard() {
+            const grid = document.getElementById('dashboard-grid');
+            let html = '';
+
+            usersData.forEach(u => {
+                let totalGoals = u.goals.length * 21;
+                let completed = 0;
+                for (let d = 2; d <= 31; d++) {
+                    const dateStr = `2026-10-${String(d).padStart(2,'0')}`;
+                    const checks = recordsData[dateStr]?.[u.id]?.checks || [0,0,0];
+                    checks.forEach(c => { if (c === 1 || c === 2) completed++; });
+                }
+                let pct = Math.min(100, Math.round((completed / (totalGoals || 1)) * 100));
+
+                html += `
+                    <div onclick="openReportModal(${u.id})" class="bg-white p-3 rounded-2xl border border-stone-100 shadow-sm flex flex-col justify-between cursor-pointer hover:border-emerald-300 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-sm text-stone-800">${u.name}</span>
+                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">${pct}%</span>
+                        </div>
+                        <div class="space-y-1.5 text-xs text-stone-500">
+                `;
+
+                u.goals.forEach((g, idx) => {
+                    html += `<div class="truncate">· ${g.text || '미설정'}</div>`;
+                });
+
+                html += `
+                        </div>
+                        <div class="text-[10px] text-stone-400 text-right mt-2">상세보기 &gt;</div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function renderModalContent() {
+            const tabsContainer = document.getElementById('modal-member-tabs');
+            let tabsHtml = '';
+            usersData.forEach((u, idx) => {
+                const active = idx === activeMemberTab;
+                tabsHtml += `
+                    <button onclick="selectMemberTab(${idx})" class="flex-1 py-2 text-xs font-semibold rounded-lg transition ${active ? 'bg-white text-emerald-700 shadow-sm' : 'text-stone-500 hover:text-stone-800'}">
+                        ${u.name}
+                    </button>
+                `;
+            });
+            tabsContainer.innerHTML = tabsHtml;
+
+            const user = usersData[activeMemberTab];
+            const contentContainer = document.getElementById('modal-member-content');
+            const dayRecord = recordsData[selectedDateStr]?.[user.id] || { checks: [0,0,0], memo: '' };
+
+            let goalsHtml = `<div class="space-y-2">`;
+            user.goals.forEach((g, gIdx) => {
+                const state = dayRecord.checks[gIdx] || 0;
+                let bgClass = 'bg-stone-50 border-stone-200 text-stone-600';
+                let icon = '⬜ 미완료';
+                if (state === 1) { bgClass = 'bg-emerald-500 text-white border-emerald-600 shadow-sm'; icon = '✅ 완료'; }
+                else if (state === 2) { bgClass = 'bg-stone-200 text-stone-600 border-stone-300'; icon = '⚪ 휴식(패스)'; }
+
+                goalsHtml += `
+                    <div onclick="toggleCheck(${user.id}, ${gIdx})" class="flex items-center justify-between p-3 rounded-xl border ${bgClass} cursor-pointer transition">
+                        <span class="text-sm font-medium">목표 ${gIdx+1}. ${g.text || '목표를 입력해주세요'} <span class="text-[10px] opacity-75">(${g.freq === 7 ? '매일' : '주 ' + g.freq + '회'})</span></span>
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white/20">${icon}</span>
+                    </div>
+                `;
+            });
+            goalsHtml += `</div>`;
+
+            let memoHtml = `
+                <div class="space-y-2 pt-2 border-t border-stone-100">
+                    <label class="text-xs font-bold text-stone-600">💬 한 줄 응원 & 소통 메모</label>
+                    ${dayRecord.memo ? `<div class="bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl text-xs text-emerald-900 font-medium">✨ ${dayRecord.memo}</div>` : ''}
+                    <div class="flex space-x-1">
+                        <input type="text" id="memo-input-${user.id}" placeholder="오늘의 한마디를 남겨보세요 (최대 30자)" maxlength="30" value="${dayRecord.memo || ''}" class="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500">
+                        <button onclick="sendMemo(${user.id}, document.getElementById('memo-input-${user.id}').value)" class="bg-emerald-600 text-xs text-white px-3 py-2 rounded-xl font-medium">남기기</button>
+                    </div>
+                    <div class="flex space-x-1 pt-1">
+                        <button onclick="sendMemo(${user.id}, '👍 오늘도 수고했어요!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">👍 화이팅</button>
+                        <button onclick="sendMemo(${user.id}, '🔥 끝까지 달려봅시다!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">🔥 불끈</button>
+                        <button onclick="sendMemo(${user.id}, '❤ 모두 응원해요!')" class="text-xs bg-stone-100 hover:bg-stone-200 px-2 py-1 rounded-lg">❤️ 응원</button>
+                    </div>
+                </div>
+            `;
+
+            contentContainer.innerHTML = goalsHtml + memoHtml;
+        }
+
+        function renderGoalSettings() {
+            const container = document.getElementById('goal-settings-container');
+            let html = '';
+            tempGoalsData.forEach((u, uIdx) => {
+                html += `
+                    <div class="bg-stone-50 p-4 rounded-2xl border border-stone-100 space-y-3">
+                        <h4 class="font-bold text-emerald-800 text-sm">👤 ${u.name}님의 목표</h4>
+                `;
+                u.goals.forEach((g, gIdx) => {
+                    html += `
+                        <div class="flex space-x-2">
+                            <input type="text" value="${g.text}" oninput="tempGoalsData[${uIdx}].goals[${gIdx}].text = this.value" placeholder="목표 ${gIdx+1} 입력" class="flex-1 bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500">
+                            <select onchange="tempGoalsData[${uIdx}].goals[${gIdx}].freq = Number(this.value)" class="bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-xs">
+                                <option value="7" ${g.freq===7?'selected':''}>매일 (주7회)</option>
+                                <option value="5" ${g.freq===5?'selected':''}>주 5회</option>
+                                <option value="3" ${g.freq===3?'selected':''}>주 3회</option>
+                                <option value="1" ${g.freq===1?'selected':''}>주 1회</option>
+                            </select>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        initFirebase();
+    </script>
+</body>
+</html>
