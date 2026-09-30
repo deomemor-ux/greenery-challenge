@@ -33,17 +33,20 @@
   
   <div id="root" class="h-full"></div>
 
-  <!-- 기기 간 완전한 실시간 동기화를 보장하는 공식 Firebase 클라우드 연동 모듈 -->
+  <!-- 선생님의 실제 Firebase 클라우드 연동 모듈 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     
-    // 네 분이서 전 세계 어디서든 데이터를 공유할 수 있는 공용 클라우드 데이터베이스 채널
     const firebaseConfig = {
-      apiKey: "AIzaSyD-Greenery-Challenge-Shared-Env",
-      authDomain: "greenery-october-challenge.firebaseapp.com",
-      projectId: "greenery-october-challenge"
+      apiKey: "AIzaSyCpwLH3fRWpQ1xliA5d_m_FdiAE-xDhAbs",
+      authDomain: "greenery-challenge.firebaseapp.com",
+      projectId: "greenery-challenge",
+      storageBucket: "greenery-challenge.firebasestorage.app",
+      messagingSenderId: "298325763637",
+      appId: "1:298325763637:web:94dc672e29d3cb6997337c",
+      measurementId: "G-3VKE3PXEZ3"
     };
 
     let db = null;
@@ -69,7 +72,7 @@
     window.AppRuntime = { db, dataPath, defaultUsers, holidays, doc, onSnapshot, setDoc, getDoc };
   </script>
 
-  <!-- 최종 컨펌해주신 React 코드 100% 동일 적용 (디자인/로직 무결성 유지) -->
+  <!-- 최종 컨펌해주신 React 코드 100% 동일 적용 (설정 버튼 오타 수정 완료) -->
   <script type="text/babel">
     const { useState, useEffect } = React;
 
@@ -648,7 +651,7 @@
             </button>
           </nav>
 
-          {isGoalModalOpen && <GoalStateModal />}
+          {isGoalModalOpen && <GoalSettingModal />}
           {selectedDate && <DailyDetailModal />}
           {reportUserId !== null && <UserReportModal />}
         </div>
