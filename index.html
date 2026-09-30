@@ -33,13 +33,12 @@
   
   <div id="root" class="h-full"></div>
 
-  <!-- 자동 실시간 연동을 위한 Firebase SDK 및 환경 변수 처리 -->
+  <!-- 안정적인 실시간 동기화를 위한 Firebase SDK 및 설정 주입 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     
-    // 플랫폼에서 제공하는 자동 환경 변수를 안전하게 주입
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'greenery-challenge-v3';
     const fbConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -71,7 +70,7 @@
       authenticate();
     }
 
-    window.AppRuntime = { db, dataPath, defaultUsers, holidays, getAuth, signInAnonymously, getFirestore, doc, onSnapshot, setDoc, getDoc };
+    window.AppRuntime = { db, dataPath, defaultUsers, holidays, doc, onSnapshot, setDoc, getDoc };
   </script>
 
   <!-- 최종 컨펌해주신 React 코드 100% 동일 적용 -->
@@ -85,7 +84,6 @@
     const holidays = runtime.holidays || [];
 
     const App = () => {
-      const [isAuth, setIsAuth] = useState(false);
       const [users, setUsers] = useState(defaultUsers);
       const [records, setRecords] = useState({});
       const [view, setView] = useState('calendar'); // 'calendar' | 'dashboard'
@@ -96,10 +94,7 @@
       const [reportUserId, setReportUserId] = useState(null);
 
       useEffect(() => {
-        if (!db) {
-          setIsAuth(true);
-          return;
-        }
+        if (!db) return;
         const usersRef = window.AppRuntime.doc(db, dataPath, 'config');
         const recordsRef = window.AppRuntime.doc(db, dataPath, 'records');
 
@@ -117,7 +112,6 @@
           else setRecords({});
         });
 
-        setIsAuth(true);
         return () => { unsubUsers(); unsubRecords(); };
       }, [db]);
 
