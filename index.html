@@ -133,21 +133,6 @@
         return goal || { text: '', freq: 7 };
       };
 
-      // 열정 온도 계산 (기존 연속 달성 대체) - 전체 누적 O(수행) 개수
-      const calculateTemperature = () => {
-        let temp = 0;
-        for (let d = 2; d <= 31; d++) {
-          const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
-          for (let uid = 0; uid < 4; uid++) {
-            const checks = records[dateStr]?.[uid]?.checks || [0,0,0];
-            checks.forEach(c => {
-              if (getCheckState(c) === 1) temp++;
-            });
-          }
-        }
-        return temp;
-      };
-
       // 주 단위 캡(Cap) 적용 진정한 달성률 계산 로직 (일~토 기준)
       const calculateProgress = (userId, goalIndex = null) => {
         const user = users.find(u => u.id === userId) || defaultUsers[userId];
@@ -169,20 +154,17 @@
           let totalAchieved = 0;
 
           weeks.forEach(weekDays => {
-            // 이번 주의 최대 목표치 (빈 날짜가 적은 첫 주는 날짜 수와 freq 중 작은 값)
             const targetThisWeek = Math.min(freq, weekDays.length);
             let achievedThisWeek = 0;
 
             weekDays.forEach(d => {
               const dateStr = `2026-10-${String(d).padStart(2, '0')}`;
               const state = getCheckState((records[dateStr]?.[userId]?.checks || [0,0,0])[idx]);
-              // 오직 '수행(1)'일 때만 횟수 증가 (Pass는 무시)
               if (state === 1) {
                 achievedThisWeek++;
               }
             });
 
-            // 100% 초과 방지: 이번 주에 목표를 넘겨서 했더라도 최대 목표치까지만 합산
             totalAchieved += Math.min(achievedThisWeek, targetThisWeek);
             totalTarget += targetThisWeek;
           });
@@ -195,6 +177,35 @@
         
         const avg = (getPctForSingleGoal(0) + getPctForSingleGoal(1) + getPctForSingleGoal(2)) / 3;
         return Math.round(avg) || 0;
+      };
+
+      // 성장 단계별 이미지 매핑 함수
+      const getGrowthImage = (userId, pct) => {
+        if (pct <= 20) {
+          return "ChatGPT 이미지 2026년 10월 2일 오전 09_36_36.png"; // 1단계: 물뿌리개
+        } else if (pct <= 40) {
+          return "햇살 아래 귀여운 새싹 아이콘.png"; // 2단계: 새싹
+        } else if (pct <= 60) {
+          return "반짝이는 새싹과 푸른 초원.png"; // 3단계: 풍성한 묘목
+        } else if (pct <= 80) {
+          // 4단계: 사용자별 봉오리
+          const stage4 = [
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_24-1.png", // 작약세계 (작약 봉오리)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_25-2.png", // Fern (노란 봉오리)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_26-3.png", // hereNnow (하얀 봉오리)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_27-4.png"  // 수국정원 (보라 수국 몽우리)
+          ];
+          return stage4[userId] || stage4[0];
+        } else {
+          // 5단계: 사용자별 만개한 꽃
+          const stage5 = [
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_06-1.png", // 작약세계 (만개 작약)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_07-2.png", // Fern (황코스모스)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_08-3.png", // hereNnow (아네모네)
+            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_09-4.png"  // 수국정원 (만개 수국)
+          ];
+          return stage5[userId] || stage5[0];
+        }
       };
 
       const GoalSettingModal = () => {
@@ -282,7 +293,6 @@
         const userRecord = dayRecord[activeUserTab] || { checks: [0, 0, 0], memo: '', emojis: {} };
         const checks = (userRecord.checks || [0,0,0]).map(getCheckState);
 
-        // 충돌 방지를 위한 '핀셋 업데이트(Deep Merge)' 로직
         const applyPinpointUpdate = async (newData) => {
           if (!db) return;
           const specificUpdate = {
@@ -295,7 +305,6 @@
               }
             }
           };
-          // 이 방식은 내 기기의 과거 전체 데이터를 서버로 보내지 않으므로 남의 기록을 덮어쓰지 않습니다.
           await window.AppRuntime.setDoc(window.AppRuntime.doc(db, dataPath, 'records'), specificUpdate, { merge: true });
         };
 
@@ -311,14 +320,21 @@
           setMemoText('');
         };
 
-        const handleEmoji = async (emoji) => {
+        const handleEmoji = async (cheerText) => {
           const currentEmojis = userRecord.emojis || {};
-          const count = (currentEmojis[emoji] || 0) + 1;
-          await applyPinpointUpdate({ emojis: { ...currentEmojis, [emoji]: count } });
+          const count = (currentEmojis[cheerText] || 0) + 1;
+          await applyPinpointUpdate({ emojis: { ...currentEmojis, [cheerText]: count } });
         };
 
         const activeUser = users.find(u => u.id === activeUserTab) || defaultUsers[activeUserTab];
         const displayDate = selectedDate ? selectedDate.split('-') : ['','',''];
+
+        const cheerOptions = [
+          { icon: '🌟', text: '대단해요' },
+          { icon: '💪', text: '힘내요' },
+          { icon: '🔥', text: '포기마요' },
+          { icon: '☕', text: '좀 쉬어요' }
+        ];
 
         return (
           <div className="fixed inset-0 bg-black/60 z-40 flex items-end justify-center animate-in fade-in duration-200">
@@ -384,7 +400,6 @@
                   )}
                 </div>
 
-                {/* 분리된 기록 및 응원 영역 UI */}
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 mt-2 mb-4">
                   <div className="mb-4">
                     <p className="text-[11px] font-bold text-lime-700 mb-2">📝 한 줄 일기 (내 탭에서만 작성)</p>
@@ -406,15 +421,18 @@
                   <div className="border-t border-stone-100 pt-3">
                     <p className="text-[11px] font-bold text-pink-500 mb-2">💌 동료 응원하기 (클릭!)</p>
                     <div className="flex space-x-2">
-                      {['👍', '🔥', '👏', '❤️'].map(emoji => {
-                        const count = (userRecord.emojis || {})[emoji] || 0;
+                      {cheerOptions.map(cheer => {
+                        const count = (userRecord.emojis || {})[cheer.text] || 0;
                         return (
                           <button 
-                            key={emoji} onClick={() => handleEmoji(emoji)}
-                            className="flex-1 flex flex-col items-center justify-center bg-stone-50 hover:bg-stone-100 py-1.5 rounded-lg border border-stone-200 transition-colors active:bg-stone-200"
+                            key={cheer.text} onClick={() => handleEmoji(cheer.text)}
+                            className="flex-1 flex flex-col items-center justify-center bg-stone-50 hover:bg-stone-100 py-2 rounded-lg border border-stone-200 transition-colors active:bg-stone-200"
                           >
-                            <span className="text-lg mb-0.5">{emoji}</span>
-                            {count > 0 && <span className="text-[10px] font-bold text-stone-500">{count}</span>}
+                            <div className="flex items-center space-x-1 mb-1">
+                              <span className="text-lg">{cheer.icon}</span>
+                              {count > 0 && <span className="text-[10px] font-bold text-pink-500 bg-pink-100 px-1.5 py-0.5 rounded-full">{count}</span>}
+                            </div>
+                            <span className="text-[10px] font-bold text-stone-600 tracking-tight">{cheer.text}</span>
                           </button>
                         );
                       })}
@@ -578,41 +596,39 @@
       };
 
       const renderDashboard = () => {
-        const currentTemp = calculateTemperature();
-
         return (
           <div className="flex-1 flex flex-col bg-stone-50 overflow-hidden relative pb-[4.5rem]">
-            {currentTemp > 0 && (
-              <div className="px-4 pt-4 shrink-0">
-                <div className="bg-gradient-to-r from-lime-700 to-lime-900 rounded-2xl p-4 text-white shadow-md relative overflow-hidden flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lime-200 font-medium text-xs mb-0.5">우리들의 누적 열정 온도</h3>
-                    <div className="text-2xl font-extrabold flex items-center">현재 {currentTemp}도 달성 중! 🌡️</div>
-                  </div>
-                  <div className="text-4xl animate-bounce">🔥</div>
-                </div>
-              </div>
-            )}
-
             <div className="flex-1 grid grid-cols-2 gap-3 p-4 overflow-y-auto">
               {users.map((u) => {
                 const overall = calculateProgress(u.id);
+                const currentImg = getGrowthImage(u.id, overall);
+
                 return (
                   <div 
                     key={u.id} 
                     onClick={() => setReportUserId(u.id)}
                     className="cursor-pointer bg-white rounded-2xl p-3.5 shadow-sm border border-stone-100 flex flex-col justify-between hover:border-lime-400 hover:shadow-md transition-all active:scale-[0.98]"
                   >
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="font-extrabold text-stone-800 text-[15px] truncate pr-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-extrabold text-stone-800 text-[15px] truncate pr-1">
                         {u.name}
                       </span>
-                      <div className="relative shrink-0 w-10 h-10 flex items-center justify-center bg-lime-50 rounded-full border-2 border-lime-200">
+                      <div className="shrink-0 bg-lime-50 px-2 py-0.5 rounded-full border border-lime-200">
                         <span className="font-black text-lime-700 text-xs">{overall}%</span>
                       </div>
                     </div>
                     
-                    <div className="space-y-2 mt-auto">
+                    {/* 선생님의 성장 일러스트가 들어가는 화분 카드 영역 */}
+                    <div className="my-2 bg-stone-50 rounded-xl p-2 border border-stone-100 flex items-center justify-center h-28 relative overflow-hidden shadow-inner">
+                      <img 
+                        src={currentImg} 
+                        alt="growth stage" 
+                        className="w-full h-full object-contain drop-shadow-sm transition-all duration-500"
+                        style={{ filter: 'saturate(0.8)' }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 mt-auto">
                       {[0, 1, 2].map((idx) => {
                         const pct = calculateProgress(u.id, idx);
                         const goalRaw = u.goals[idx];
@@ -633,8 +649,7 @@
                 );
               })}
               
-              {/* 하단 달성 규칙 안내 문구 */}
-              <div className="col-span-2 px-2 py-4 text-center mt-2 border-t border-stone-200/60">
+              <div className="col-span-2 px-2 py-2 text-center mt-1 border-t border-stone-200/60">
                 <p className="text-[10px] font-medium text-stone-400 leading-relaxed">
                   * 주 N회 목표는 달력(일~토) 기준으로 실시간 계산됩니다.<br/>
                   * 한 주에 목표 횟수를 초과 달성해도 주간 100%까지만 반영됩니다.<br/>
