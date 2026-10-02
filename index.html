@@ -141,7 +141,6 @@
           const goalObj = getGoalObj(user.goals[idx]);
           const freq = goalObj.freq || 7;
           
-          // 10월 달력 기준 주차 배열 (2~3일은 첫 주)
           const weeks = [
             [2, 3], // 1주차 (금, 토)
             [4, 5, 6, 7, 8, 9, 10], // 2주차 (일~토)
@@ -179,31 +178,21 @@
         return Math.round(avg) || 0;
       };
 
-      // 성장 단계별 이미지 매핑 함수
+      // 영문 파일명이 적용된 성장 단계별 이미지 매핑 함수
       const getGrowthImage = (userId, pct) => {
         if (pct <= 20) {
-          return "ChatGPT 이미지 2026년 10월 2일 오전 09_36_36.png"; // 1단계: 물뿌리개
+          return "stage1.png"; // 1단계: 물뿌리개
         } else if (pct <= 40) {
-          return "햇살 아래 귀여운 새싹 아이콘.png"; // 2단계: 새싹
+          return "stage2.png"; // 2단계: 새싹
         } else if (pct <= 60) {
-          return "반짝이는 새싹과 푸른 초원.png"; // 3단계: 풍성한 묘목
+          return "stage3.png"; // 3단계: 풍성한 묘목
         } else if (pct <= 80) {
-          // 4단계: 사용자별 봉오리
-          const stage4 = [
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_24-1.png", // 작약세계 (작약 봉오리)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_25-2.png", // Fern (노란 봉오리)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_26-3.png", // hereNnow (하얀 봉오리)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_42_27-4.png"  // 수국정원 (보라 수국 몽우리)
-          ];
+          // 4단계: 사용자별 봉오리 (작약, Fern, hereNnow, 수국정원 순)
+          const stage4 = ["peony_4.png", "fern_4.png", "herennow_4.png", "hydrangea_4.png"];
           return stage4[userId] || stage4[0];
         } else {
-          // 5단계: 사용자별 만개한 꽃
-          const stage5 = [
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_06-1.png", // 작약세계 (만개 작약)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_07-2.png", // Fern (황코스모스)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_08-3.png", // hereNnow (아네모네)
-            "ChatGPT 이미지 2026년 10월 2일 오전 09_45_09-4.png"  // 수국정원 (만개 수국)
-          ];
+          // 5단계: 사용자별 만개한 꽃 (작약, Fern, hereNnow, 수국정원 순)
+          const stage5 = ["peony_5.png", "fern_5.png", "herennow_5.png", "hydrangea_5.png"];
           return stage5[userId] || stage5[0];
         }
       };
@@ -618,7 +607,7 @@
                       </div>
                     </div>
                     
-                    {/* 선생님의 성장 일러스트가 들어가는 화분 카드 영역 */}
+                    {/* 영문 파일명 일러스트가 들어가는 화분 카드 영역 */}
                     <div className="my-2 bg-stone-50 rounded-xl p-2 border border-stone-100 flex items-center justify-center h-28 relative overflow-hidden shadow-inner">
                       <img 
                         src={currentImg} 
